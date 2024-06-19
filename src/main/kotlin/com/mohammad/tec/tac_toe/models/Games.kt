@@ -27,22 +27,26 @@ data class Games(
     var playerId1:UUID?=null,
     @Column("player_id2")
     var playerId2:UUID?=null,
+    @Column("player_id_turn")
+    var playerIdTurn:UUID?=null,
+    @Column("current_cell_type")
+    var currentCellType:CellState=CellState.X,
     @Column
-    val cell1: CellState=CellState.NONE,
+    var cell1: CellState=CellState.NONE,
     @Column
-    val cell2: CellState=CellState.NONE,
+    var cell2: CellState=CellState.NONE,
     @Column
-    val cell3:CellState=CellState.NONE,
+    var cell3:CellState=CellState.NONE,
     @Column
-    val cell4: CellState=CellState.NONE,
+    var cell4: CellState=CellState.NONE,
     @Column
-    val cell5: CellState=CellState.NONE,
+    var cell5: CellState=CellState.NONE,
     @Column
-    val cell6: CellState=CellState.NONE,
+    var cell6: CellState=CellState.NONE,
     @Column
-    val cell7: CellState=CellState.NONE,
+    var cell7: CellState=CellState.NONE,
     @Column
-    val cell8: CellState=CellState.NONE,
+    var cell8: CellState=CellState.NONE,
     @Column
-    val cell9: CellState=CellState.NONE,
+    var cell9: CellState=CellState.NONE,
 )

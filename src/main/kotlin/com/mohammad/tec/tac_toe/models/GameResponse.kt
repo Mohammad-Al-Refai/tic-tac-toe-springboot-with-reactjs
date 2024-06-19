@@ -38,6 +38,7 @@ data class JoinedGame(
 data class UpdateGame(
     override var action: ActionResponse = ActionResponse.UPDATE_GAME,
     var gameId:UUID,
+    var playerIdTurn:UUID,
     val cell1:CellState,
     val cell2:CellState,
     val cell3:CellState,

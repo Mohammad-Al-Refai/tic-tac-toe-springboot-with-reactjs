@@ -16,6 +16,6 @@ data class Players(
     val name: String,
     @Column("ip_address")
     val ipAddress: String,
-    @Column("is_active")
+    @Column("isactive")
     var isActive: Boolean
 )
