@@ -11,6 +11,7 @@ import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
+import reactor.kotlin.core.publisher.toMono
 import java.util.UUID
 import kotlin.coroutines.CoroutineContext
 
@@ -19,19 +20,22 @@ class WebSocketHandler(
     private val objectMapper: ObjectMapper, private val gameRepo: GameRepo,
     private val dispatcher: CoroutineDispatcher, private val playerRepo: PlayerRepo
 ) : TextWebSocketHandler(), CoroutineScope {
-    private val activePlayers = mutableMapOf<Players, WebSocketSession>()
+    private val activePlayers = mutableMapOf<UUID, WebSocketSession>()
+    private val activeSessionsIps = mutableSetOf<String>()
     override val coroutineContext: CoroutineContext = dispatcher
 
     override fun afterConnectionEstablished(session: WebSocketSession) {
-        launch {
-            val player = playerRepo.findByIpAddress(getIpAddress(session))
-            if (player == null) {
-                createPlayer(session)
-            } else {
-                setPlayerActive(session)
-            }
-        }.start()
-
+        val ip = getIpAddress(session)
+        if (activeSessionsIps.add(ip)) {
+            launch {
+                val player = playerRepo.findByIpAddress(ip)
+                if (player == null) {
+                    createPlayer(session)
+                } else {
+                    setPlayerActive(session)
+                }
+            }.start()
+        }
     }
 
     override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
@@ -51,6 +55,7 @@ class WebSocketHandler(
 
     override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {
         setPlayerInactive(session)
+        activeSessionsIps.remove(getIpAddress(session))
     }
 
     private fun sendError(session: WebSocketSession, message: String) {
@@ -66,7 +71,7 @@ class WebSocketHandler(
     }
 
     private fun sendMessage(session: WebSocketSession, commandResponse: IGameResponse) {
-        if (!session.isOpen){
+        if (!session.isOpen) {
             return
         }
         session.sendMessage(TextMessage(dtoToByteArray(commandResponse, objectMapper)))
@@ -78,6 +83,11 @@ class WebSocketHandler(
             return
         }
         launch {
+            val isPlayerNotExist = activePlayers[command.clientId] == null
+            if (isPlayerNotExist) {
+                sendError(session, "Player is unknown")
+                return@launch
+            }
             val game = gameRepo.save(
                 Games(
                     adminId = command.clientId,
@@ -100,7 +110,7 @@ class WebSocketHandler(
             sendError(session, "Unable to create player")
             return
         }
-        activePlayers[player] = session
+        activePlayers[player.id] = session
         sendMessage(session, response)
     }
 
@@ -129,11 +139,11 @@ class WebSocketHandler(
                 return@launch
             }
             if (game.playerId1 == null) {
-                joinPlayer1(game = game, clientId = command.clientId,session=session)
+                joinPlayer1(game = game, clientId = command.clientId, session = session)
                 return@launch
             }
             if (game.playerId2 == null) {
-               joinPlayer2(game = game, clientId = command.clientId,session=session)
+                joinPlayer2(game = game, clientId = command.clientId, session = session)
                 return@launch
             }
         }.start()
@@ -164,10 +174,14 @@ class WebSocketHandler(
                 sendError(session, "Game is not ready yet")
                 return@launch
             }
-            val player1Session = activePlayers[player1]
-            val player2Session = activePlayers[player2]
+            val player1Session = activePlayers[player1.id]
+            val player2Session = activePlayers[player2.id]
             if (player1Session == null || player2Session == null) {
                 sendError(session, "Game is not ready yet, missing player")
+                return@launch
+            }
+            if (command.clientId != game.playerIdTurn) {
+                sendError(session, "it's not your turn yet")
                 return@launch
             }
             when (command.cellIndex) {
@@ -262,7 +276,7 @@ class WebSocketHandler(
             val player = playerRepo.findByIpAddress(getIpAddress(session)) ?: return@launch
             player.isActive = false
             playerRepo.save(player)
-            activePlayers.remove(player)
+            activePlayers.remove(player.id)
         }
     }
 
@@ -271,7 +285,7 @@ class WebSocketHandler(
             val player = playerRepo.findByIpAddress(getIpAddress(session)) ?: return@launch
             player.isActive = true
             playerRepo.save(player)
-            activePlayers[player] = session
+            activePlayers[player.id!!] = session
             sendMessage(session, PlayerConnected(clientId = player.id))
         }
     }
@@ -288,33 +302,60 @@ class WebSocketHandler(
         playerIdTurn: UUID
     ) {
         launch {
-            val game = gameRepo.save(game)
+            println(game)
+//            val savedGame = gameRepo.save(game)
             if (game.id == null) {
                 sendError(currentSession, "Unable to update game")
                 return@launch
             }
-            val player1Session = activePlayers[player1]
-            val player2Session = activePlayers[player2]
+            val player1Session = activePlayers[player1.id]
+            val player2Session = activePlayers[player2.id]
             if (player1Session == null || player2Session == null) {
                 sendError(currentSession, "Game is not ready yet, missing player")
                 return@launch
             }
+
+            val isWin = checkWin(game)
+            //Has issue in currentCellType doesn't have the correct value
+            println("--------IsWIN $isWin")
+
+            if (isWin && game.currentCellType == CellState.X && game.playerIdTurn == game.playerId1) {
+                val winResponse = WinGame(gameId = game.id, playerId = game.playerId1!!, winner = game.currentCellType)
+                sendMessage(player1Session, winResponse)
+                sendMessage(player2Session, winResponse)
+            }
+            if (isWin && game.currentCellType == CellState.O && game.playerIdTurn == game.playerId1) {
+                val winResponse = WinGame(gameId = game.id, playerId = game.playerId1!!, winner = game.currentCellType)
+                sendMessage(player1Session, winResponse)
+                sendMessage(player2Session, winResponse)
+            }
+            if (isWin && game.currentCellType == CellState.X && game.playerIdTurn == game.playerId2) {
+                val winResponse = WinGame(gameId = game.id, playerId = game.playerId2!!, winner = game.currentCellType)
+                sendMessage(player1Session, winResponse)
+                sendMessage(player2Session, winResponse)
+            }
+            if (isWin && game.currentCellType == CellState.O && game.playerIdTurn == game.playerId2) {
+                val winResponse = WinGame(gameId = game.id, playerId = game.playerId2!!, winner = game.currentCellType)
+                sendMessage(player1Session, winResponse)
+                sendMessage(player2Session, winResponse)
+            }
+            val savedGame = gameRepo.save(game)
             val gameResponse = UpdateGame(
-                gameId = game.id,
-                cell1 = game.cell1,
-                cell2 = game.cell2,
-                cell3 = game.cell3,
-                cell4 = game.cell4,
-                cell5 = game.cell5,
-                cell6 = game.cell6,
-                cell7 = game.cell7,
-                cell8 = game.cell8,
-                cell9 = game.cell9,
-                playerIdTurn = playerIdTurn
+                gameId = savedGame.id!!,
+                cell1 = savedGame.cell1,
+                cell2 = savedGame.cell2,
+                cell3 = savedGame.cell3,
+                cell4 = savedGame.cell4,
+                cell5 = savedGame.cell5,
+                cell6 = savedGame.cell6,
+                cell7 = savedGame.cell7,
+                cell8 = savedGame.cell8,
+                cell9 = savedGame.cell9,
+                playerIdTurn = savedGame.playerIdTurn!!,
+                turn = savedGame.currentCellType
             )
             sendMessage(player1Session, gameResponse)
             sendMessage(player2Session, gameResponse)
-
         }
     }
 
@@ -325,10 +366,11 @@ class WebSocketHandler(
             CellState.X
         }
     }
-    private suspend fun joinPlayer1(game: Games,clientId:UUID,session: WebSocketSession){
+
+    private suspend fun joinPlayer1(game: Games, clientId: UUID, session: WebSocketSession) {
         game.apply {
             playerId1 = clientId
-            playerIdTurn=clientId
+            playerIdTurn = clientId
         }
         gameRepo.save(game)
         sendMessage(
@@ -349,7 +391,8 @@ class WebSocketHandler(
             )
         )
     }
-    private suspend fun joinPlayer2(game: Games,clientId:UUID,session: WebSocketSession){
+
+    private suspend fun joinPlayer2(game: Games, clientId: UUID, session: WebSocketSession) {
         game.apply {
             playerId2 = clientId
         }
@@ -381,5 +424,16 @@ class WebSocketHandler(
             return game.playerId1
         }
         return null
+    }
+
+    private fun checkWin(game: Games): Boolean {
+        return (game.cell1 == game.currentCellType && game.cell2 == game.currentCellType && game.cell3 == game.currentCellType) ||
+                (game.cell4 == game.currentCellType && game.cell5 == game.currentCellType && game.cell6 == game.currentCellType) ||
+                (game.cell7 == game.currentCellType && game.cell8 == game.currentCellType && game.cell9 == game.currentCellType) ||
+                (game.cell1 == game.currentCellType && game.cell4 == game.currentCellType && game.cell7 == game.currentCellType) ||
+                (game.cell2 == game.currentCellType && game.cell5 == game.currentCellType && game.cell8 == game.currentCellType) ||
+                (game.cell3 == game.currentCellType && game.cell6 == game.currentCellType && game.cell9 == game.currentCellType) ||
+                (game.cell1 == game.currentCellType && game.cell5 == game.currentCellType && game.cell9 == game.currentCellType) ||
+                (game.cell3 == game.currentCellType && game.cell5 == game.currentCellType && game.cell7 == game.currentCellType)
     }
 }
