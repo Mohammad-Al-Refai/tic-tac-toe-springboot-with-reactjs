@@ -184,90 +184,11 @@ class WebSocketHandler(
                 sendError(session, "it's not your turn yet")
                 return@launch
             }
-            when (command.cellIndex) {
-                CellIndex.Cell1 -> game.apply {
-                    if (game.cell1 != CellState.NONE) {
-                        sendError(session, "Cell1 is already filled")
-                        return@launch
-                    }
-                    cell1 = game.currentCellType
-                }
-
-                CellIndex.Cell2 -> game.apply {
-                    if (game.cell2 != CellState.NONE) {
-                        sendError(session, "Cell2 is already filled")
-                        return@launch
-                    }
-                    cell2 = game.currentCellType
-                }
-
-                CellIndex.Cell3 -> game.apply {
-                    if (game.cell3 != CellState.NONE) {
-                        sendError(session, "Cell3 is already filled")
-                        return@launch
-                    }
-                    cell3 = game.currentCellType
-                }
-
-                CellIndex.Cell4 -> game.apply {
-                    if (game.cell4 != CellState.NONE) {
-                        sendError(session, "Cell4 is already filled")
-                        return@launch
-                    }
-                    cell4 = game.currentCellType
-                }
-
-                CellIndex.Cell5 -> game.apply {
-                    if (game.cell5 != CellState.NONE) {
-                        sendError(session, "Cell5 is already filled")
-                        return@launch
-                    }
-                    cell5 = game.currentCellType
-                }
-
-                CellIndex.Cell6 -> game.apply {
-                    if (game.cell6 != CellState.NONE) {
-                        sendError(session, "Cell6 is already filled")
-                        return@launch
-                    }
-                    cell6 = game.currentCellType
-                }
-
-                CellIndex.Cell7 -> game.apply {
-                    if (game.cell7 != CellState.NONE) {
-                        sendError(session, "Cell7 is already filled")
-                        return@launch
-                    }
-                    cell7 = game.currentCellType
-                }
-
-                CellIndex.Cell8 -> game.apply {
-                    if (game.cell8 != CellState.NONE) {
-                        sendError(session, "Cell8 is already filled")
-                        return@launch
-                    }
-                    cell8 = game.currentCellType
-                }
-
-                CellIndex.Cell9 -> game.apply {
-                    if (game.cell9 != CellState.NONE) {
-                        sendError(session, "Cell9 is already filled")
-                        return@launch
-                    }
-                    cell9 = game.currentCellType
-                }
-
-                else -> {}
-            }
-            game.apply {
-                currentCellType = getCellTurn(currentCellType)
-                playerIdTurn = getPlayerTurn(game)
-            }
-            if (game.playerIdTurn == null) {
-                sendError(session, "No body start yet")
+            if (command.cellIndex==null){
+                sendError(session, "cellIndex is required")
                 return@launch
             }
-            updateGameToAssignedPlayers(session, game, player1, player2, game.playerIdTurn!!)
+            updateGameToAssignedPlayers(session, game, player1, player2, cellIndex=command.cellIndex)
         }.start()
     }
 
@@ -299,46 +220,122 @@ class WebSocketHandler(
         game: Games,
         player1: Players,
         player2: Players,
-        playerIdTurn: UUID
+        cellIndex:CellIndex
     ) {
         launch {
-            println(game)
-//            val savedGame = gameRepo.save(game)
-            if (game.id == null) {
-                sendError(currentSession, "Unable to update game")
-                return@launch
+            when (cellIndex) {
+                CellIndex.Cell1 -> game.apply {
+                    if (game.cell1 != CellState.NONE) {
+                        sendError(currentSession, "Cell1 is already filled")
+                        return@launch
+                    }
+                    cell1 = game.currentCellType
+                }
+
+                CellIndex.Cell2 -> game.apply {
+                    if (game.cell2 != CellState.NONE) {
+                        sendError(currentSession, "Cell2 is already filled")
+                        return@launch
+                    }
+                    cell2 = game.currentCellType
+                }
+
+                CellIndex.Cell3 -> game.apply {
+                    if (game.cell3 != CellState.NONE) {
+                        sendError(currentSession, "Cell3 is already filled")
+                        return@launch
+                    }
+                    cell3 = game.currentCellType
+                }
+
+                CellIndex.Cell4 -> game.apply {
+                    if (game.cell4 != CellState.NONE) {
+                        sendError(currentSession, "Cell4 is already filled")
+                        return@launch
+                    }
+                    cell4 = game.currentCellType
+                }
+
+                CellIndex.Cell5 -> game.apply {
+                    if (game.cell5 != CellState.NONE) {
+                        sendError(currentSession, "Cell5 is already filled")
+                        return@launch
+                    }
+                    cell5 = game.currentCellType
+                }
+
+                CellIndex.Cell6 -> game.apply {
+                    if (game.cell6 != CellState.NONE) {
+                        sendError(currentSession, "Cell6 is already filled")
+                        return@launch
+                    }
+                    cell6 = game.currentCellType
+                }
+
+                CellIndex.Cell7 -> game.apply {
+                    if (game.cell7 != CellState.NONE) {
+                        sendError(currentSession, "Cell7 is already filled")
+                        return@launch
+                    }
+                    cell7 = game.currentCellType
+                }
+
+                CellIndex.Cell8 -> game.apply {
+                    if (game.cell8 != CellState.NONE) {
+                        sendError(currentSession, "Cell8 is already filled")
+                        return@launch
+                    }
+                    cell8 = game.currentCellType
+                }
+
+                CellIndex.Cell9 -> game.apply {
+                    if (game.cell9 != CellState.NONE) {
+                        sendError(currentSession, "Cell9 is already filled")
+                        return@launch
+                    }
+                    cell9 = game.currentCellType
+                }
             }
+
             val player1Session = activePlayers[player1.id]
             val player2Session = activePlayers[player2.id]
             if (player1Session == null || player2Session == null) {
                 sendError(currentSession, "Game is not ready yet, missing player")
                 return@launch
             }
-
+            if (game.playerIdTurn == null) {
+                sendError(currentSession, "No body start yet")
+                return@launch
+            }
             val isWin = checkWin(game)
             //Has issue in currentCellType doesn't have the correct value
             println("--------IsWIN $isWin")
 
             if (isWin && game.currentCellType == CellState.X && game.playerIdTurn == game.playerId1) {
-                val winResponse = WinGame(gameId = game.id, playerId = game.playerId1!!, winner = game.currentCellType)
+                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId1!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
             if (isWin && game.currentCellType == CellState.O && game.playerIdTurn == game.playerId1) {
-                val winResponse = WinGame(gameId = game.id, playerId = game.playerId1!!, winner = game.currentCellType)
+                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId1!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
             if (isWin && game.currentCellType == CellState.X && game.playerIdTurn == game.playerId2) {
-                val winResponse = WinGame(gameId = game.id, playerId = game.playerId2!!, winner = game.currentCellType)
+                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId2!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
             if (isWin && game.currentCellType == CellState.O && game.playerIdTurn == game.playerId2) {
-                val winResponse = WinGame(gameId = game.id, playerId = game.playerId2!!, winner = game.currentCellType)
+                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId2!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
+            game.apply {
+                currentCellType = getCellTurn(currentCellType)
+                playerIdTurn = getPlayerTurn(game)
+            }
+
             val savedGame = gameRepo.save(game)
             val gameResponse = UpdateGame(
                 gameId = savedGame.id!!,
