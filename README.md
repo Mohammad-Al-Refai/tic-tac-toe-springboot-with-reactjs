@@ -35,18 +35,22 @@ To run backend project do the following:
 - React js version 18.2.66
 - Vite version 5.2.0
 
-#### Install dependencies
+### Install dependencies
 ```bash
 yarn install
 ```
 
-#### Run project
-
+### Run project
+Make sure to change the URL in `frontend\src\game\gameViewModel.ts`
+```
+const WS = "ws://{your_device_ip}:8080/ws";
+```
+Then Run:
 ```bash
 yarn dev --host
 ```
 
-#### Build
+### Build
 
 ```bash
 yarn build
