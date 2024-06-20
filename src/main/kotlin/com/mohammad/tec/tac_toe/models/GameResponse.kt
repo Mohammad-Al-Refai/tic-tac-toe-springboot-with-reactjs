@@ -38,6 +38,8 @@ data class JoinedGame(
 data class UpdateGame(
     override var action: ActionResponse = ActionResponse.UPDATE_GAME,
     var gameId:UUID,
+    var playerIdTurn:UUID,
+    val turn: CellState,
     val cell1:CellState,
     val cell2:CellState,
     val cell3:CellState,
@@ -47,4 +49,10 @@ data class UpdateGame(
     val cell7:CellState,
     val cell8:CellState,
     val cell9:CellState,
+): IGameResponse
+data class WinGame(
+    override var action: ActionResponse = ActionResponse.WIN,
+    var gameId:UUID,
+    var winner:CellState,
+    var playerId:UUID
 ): IGameResponse

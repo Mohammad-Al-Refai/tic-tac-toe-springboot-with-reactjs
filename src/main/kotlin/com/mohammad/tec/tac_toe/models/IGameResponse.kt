@@ -5,7 +5,8 @@ enum class ActionResponse {
     CONNECTED,
     GAME_CREATED,
     JOINED_GAME,
-    UPDATE_GAME
+    UPDATE_GAME,
+    WIN
 }
 
 interface IGameResponse {
