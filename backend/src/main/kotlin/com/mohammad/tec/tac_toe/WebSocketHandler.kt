@@ -70,11 +70,12 @@ class WebSocketHandler(
         )
     }
 
-    private fun sendMessage(session: WebSocketSession, commandResponse: IGameResponse) {
+    private fun sendMessage(session: WebSocketSession, response: IGameResponse) {
         if (!session.isOpen) {
             return
         }
-        session.sendMessage(TextMessage(dtoToByteArray(commandResponse, objectMapper)))
+        println("---------------ACTION_TYPE ${response.action}")
+        session.sendMessage(TextMessage(dtoToByteArray(response, objectMapper)))
     }
 
     private fun createGame(session: WebSocketSession, command: WsCommand) {
@@ -134,6 +135,10 @@ class WebSocketHandler(
                 sendError(session, "Game not found")
                 return@launch
             }
+            if (game.playerId1 == command.clientId || game.playerId2 == command.clientId) {
+                sendError(session, "you already joined")
+                return@launch
+            }
             if (game.playerId1 != null && game.playerId2 != null) {
                 sendError(session, "Game is full")
                 return@launch
@@ -184,20 +189,50 @@ class WebSocketHandler(
                 sendError(session, "it's not your turn yet")
                 return@launch
             }
-            if (command.cellIndex==null){
+            if (command.cellIndex == null) {
                 sendError(session, "cellIndex is required")
                 return@launch
             }
-            updateGameToAssignedPlayers(session, game, player1, player2, cellIndex=command.cellIndex)
+            updateGameToAssignedPlayers(session, game, player1, player2, cellIndex = command.cellIndex)
         }.start()
     }
 
     private fun setPlayerInactive(session: WebSocketSession) {
+
         launch {
             val player = playerRepo.findByIpAddress(getIpAddress(session)) ?: return@launch
-            player.isActive = false
+            player.apply {
+                isActive = false
+            }
             playerRepo.save(player)
             activePlayers.remove(player.id)
+            val asPlayer1Games = gameRepo.findGamesByPlayerId1(player.id!!)
+            val asPlayer2Games = gameRepo.findGamesByPlayerId2(player.id)
+            if (asPlayer1Games.isNotEmpty()) {
+                asPlayer1Games.forEach { game ->
+                    getGamePlayersSessions(gameId = game.id!!).forEach {
+                        sendMessage(it, PlayerQuietGame(gameId = game.id, playerId = player.id, playerName = player.name))
+                    }
+                    game.apply {
+                        playerId1 = null
+                    }
+                    gameRepo.save(game)
+                }
+            }
+            //Is not sending PlayerQuietGame
+            if (asPlayer2Games.isNotEmpty()) {
+                asPlayer2Games.forEach { game ->
+                    getGamePlayersSessions(gameId = game.id!!).forEach {
+                        sendMessage(it, PlayerQuietGame(gameId =game.id , playerId = player.id, playerName = player.name))
+                    }
+                    game.apply {
+                        playerId2 = null
+                    }
+                    gameRepo.save(game)
+                }
+            }
+
+
         }
     }
 
@@ -220,7 +255,7 @@ class WebSocketHandler(
         game: Games,
         player1: Players,
         player2: Players,
-        cellIndex:CellIndex
+        cellIndex: CellIndex
     ) {
         launch {
             when (cellIndex) {
@@ -308,26 +343,27 @@ class WebSocketHandler(
                 return@launch
             }
             val isWin = checkWin(game)
-            //Has issue in currentCellType doesn't have the correct value
-            println("--------IsWIN $isWin")
-
             if (isWin && game.currentCellType == CellState.X && game.playerIdTurn == game.playerId1) {
-                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId1!!, winner = game.currentCellType)
+                val winResponse =
+                    WinGame(gameId = game.id!!, playerId = game.playerId1!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
             if (isWin && game.currentCellType == CellState.O && game.playerIdTurn == game.playerId1) {
-                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId1!!, winner = game.currentCellType)
+                val winResponse =
+                    WinGame(gameId = game.id!!, playerId = game.playerId1!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
             if (isWin && game.currentCellType == CellState.X && game.playerIdTurn == game.playerId2) {
-                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId2!!, winner = game.currentCellType)
+                val winResponse =
+                    WinGame(gameId = game.id!!, playerId = game.playerId2!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
             if (isWin && game.currentCellType == CellState.O && game.playerIdTurn == game.playerId2) {
-                val winResponse = WinGame(gameId = game.id!!, playerId = game.playerId2!!, winner = game.currentCellType)
+                val winResponse =
+                    WinGame(gameId = game.id!!, playerId = game.playerId2!!, winner = game.currentCellType)
                 sendMessage(player1Session, winResponse)
                 sendMessage(player2Session, winResponse)
             }
@@ -365,52 +401,93 @@ class WebSocketHandler(
     }
 
     private suspend fun joinPlayer1(game: Games, clientId: UUID, session: WebSocketSession) {
+        if (isPlayerHasGames(clientId)) {
+            sendError(session, "You already joined game")
+            return
+        }
         game.apply {
             playerId1 = clientId
-            playerIdTurn = clientId
         }
-        gameRepo.save(game)
+        if (game.playerId2 == null) {
+            game.apply {
+                playerIdTurn = clientId
+            }
+        }
+        val savedGame = gameRepo.save(game)
         sendMessage(
             session,
             JoinedGame(
-                gameId = game.id!!,
-                playerId1 = game.playerId1,
-                playerId2 = game.playerId2,
-                cell1 = game.cell1,
-                cell2 = game.cell2,
-                cell3 = game.cell3,
-                cell4 = game.cell4,
-                cell5 = game.cell5,
-                cell6 = game.cell6,
-                cell7 = game.cell7,
-                cell8 = game.cell8,
-                cell9 = game.cell9
+                gameId = savedGame.id!!,
+                playerId1 = savedGame.playerId1,
+                playerId2 = savedGame.playerId2,
+                cell1 = savedGame.cell1,
+                cell2 = savedGame.cell2,
+                cell3 = savedGame.cell3,
+                cell4 = savedGame.cell4,
+                cell5 = savedGame.cell5,
+                cell6 = savedGame.cell6,
+                cell7 = savedGame.cell7,
+                cell8 = savedGame.cell8,
+                cell9 = savedGame.cell9,
+                turn = savedGame.currentCellType
             )
         )
+        if (savedGame.playerId2 === null) {
+            return
+        }
+        val player2 = playerRepo.findById(savedGame.playerId2!!)
+        val player2Session = activePlayers[savedGame.playerId2]
+        if (player2Session != null) {
+            sendMessage(
+                player2Session,
+                NewPlayerJoinedGame(gameId = savedGame.id, playerId = clientId, playerName = player2!!.name)
+            )
+        }
     }
 
     private suspend fun joinPlayer2(game: Games, clientId: UUID, session: WebSocketSession) {
+        if (isPlayerHasGames(clientId)) {
+            sendError(session, "You already joined game")
+            return
+        }
         game.apply {
             playerId2 = clientId
         }
-        gameRepo.save(game)
+        if (game.playerId1 == null) {
+            game.apply {
+                playerIdTurn = clientId
+            }
+        }
+        val savedGame = gameRepo.save(game)
         sendMessage(
             session,
             JoinedGame(
-                gameId = game.id!!,
-                playerId1 = game.playerId1,
-                playerId2 = game.playerId2,
-                cell1 = game.cell1,
-                cell2 = game.cell2,
-                cell3 = game.cell3,
-                cell4 = game.cell4,
-                cell5 = game.cell5,
-                cell6 = game.cell6,
-                cell7 = game.cell7,
-                cell8 = game.cell8,
-                cell9 = game.cell9
+                gameId = savedGame.id!!,
+                playerId1 = savedGame.playerId1,
+                playerId2 = savedGame.playerId2,
+                cell1 = savedGame.cell1,
+                cell2 = savedGame.cell2,
+                cell3 = savedGame.cell3,
+                cell4 = savedGame.cell4,
+                cell5 = savedGame.cell5,
+                cell6 = savedGame.cell6,
+                cell7 = savedGame.cell7,
+                cell8 = savedGame.cell8,
+                cell9 = savedGame.cell9,
+                turn = savedGame.currentCellType
             )
         )
+        if (savedGame.playerId1 === null) {
+            return
+        }
+        val player1 = playerRepo.findById(game.playerId1!!)
+        val player1Session = activePlayers[game.playerId1]
+        if (player1Session != null) {
+            sendMessage(
+                player1Session,
+                NewPlayerJoinedGame(gameId = savedGame.id, playerId = clientId, playerName = player1!!.name)
+            )
+        }
     }
 
     private fun getPlayerTurn(game: Games): UUID? {
@@ -421,6 +498,22 @@ class WebSocketHandler(
             return game.playerId1
         }
         return null
+    }
+
+    private suspend fun isPlayerHasGames(clientId: UUID): Boolean {
+        val game = gameRepo.findGamesByPlayerId1OrByPlayerId2(clientId)
+        return game.isNotEmpty()
+
+    }
+
+    private suspend fun getGamePlayersSessions(gameId: UUID): MutableList<WebSocketSession> {
+        val sessions = mutableListOf<WebSocketSession>()
+        val game = gameRepo.findById(gameId) ?: return sessions
+        if (game.playerId1 == null) return mutableListOf()
+        activePlayers[game.playerId1]?.let { sessions.add(it) }
+        if (game.playerId2 == null) return sessions
+        activePlayers[game.playerId2]?.let { sessions.add(it) }
+        return sessions
     }
 
     private fun checkWin(game: Games): Boolean {

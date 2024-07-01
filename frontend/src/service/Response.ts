@@ -4,6 +4,8 @@ export type ActionResponse =
   | "GAME_CREATED"
   | "JOINED_GAME"
   | "UPDATE_GAME"
+  | "NEW_PLAYER_JOINED"
+  | "PLAYER_QUIET"
   | "WIN";
 export type CellState = "NONE" | "X" | "O";
 
@@ -30,6 +32,7 @@ export interface JoinedGame {
   gameId: string;
   playerId1: string | null;
   playerId2: string | null;
+  turn: CellState;
   cell1: CellState;
   cell2: CellState;
   cell3: CellState;
@@ -55,4 +58,16 @@ export interface UpdateGame {
   cell8: CellState;
   cell9: CellState;
   turn: string;
+}
+export interface NewPlayerJoinedGame {
+  action: "NEW_PLAYER_JOINED";
+  gameId: string;
+  playerId: string;
+  playerName: string;
+}
+export interface PlayerQuiet {
+  action: "NEW_PLAYER_JOINED";
+  gameId: string;
+  playerId: string;
+  playerName: string;
 }
