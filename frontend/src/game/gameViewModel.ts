@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import useWebSocket from "react-use-websocket";
-import { CellIndex, JoinGame, updateGame } from "../service/Request";
+import {
+  CellIndex,
+  JoinGame,
+  createGame,
+  updateGame,
+} from "../service/Request";
 import {
   ActionResponse,
   PlayerConnected,
@@ -8,16 +13,19 @@ import {
   JoinedGame,
   UpdateGame,
   ServerError,
+  NewPlayerJoinedGame,
+  PlayerQuiet,
 } from "../service/Response";
 
 export function useGameViewModel() {
-  //   const WS = "ws://localhost:8080/ws";
-  const WS = "ws://192.168.8.101:8080/ws";
+  const WS = "ws://192.168.8.103:8080/ws";
   const [isConnected, setIsConnected] = useState(false);
   const [isJoinedGame, setIsJoinedGame] = useState(false);
   const [gameId, setGameId] = useState("");
-
+  const [createdGameId, setCreatedGameId] = useState("");
+  const [opponent, setOpponent] = useState({ name: "", id: "" });
   const { lastJsonMessage, sendJsonMessage } = useWebSocket(WS, {
+    reconnectAttempts: 3,
     onClose(event) {
       setIsConnected(false);
     },
@@ -52,6 +60,12 @@ export function useGameViewModel() {
       case "UPDATE_GAME":
         onUpdateGame(lastJsonMessage);
         break;
+      case "NEW_PLAYER_JOINED":
+        onNewPlayerJoinedGame(lastJsonMessage);
+        break;
+      case "PLAYER_QUIET":
+        onOpponentQuiet(lastJsonMessage);
+        break;
       case "WIN":
         onWin(lastJsonMessage);
         break;
@@ -67,9 +81,32 @@ export function useGameViewModel() {
     setIsConnected(true);
     setClientId(response.clientId);
   }
-  function onGameCreated(response: GameCreated) {}
+  function onGameCreated(response: GameCreated) {
+    setCreatedGameId(response.gameId);
+  }
+  function onOpponentQuiet(response: PlayerQuiet) {
+    alert(JSON.stringify(response));
+  }
+  function onNewPlayerJoinedGame(response: NewPlayerJoinedGame) {
+    setOpponent({
+      name: response.playerName,
+      id: response.playerId,
+    });
+    alert(JSON.stringify(response));
+  }
   function onJoinedGame(response: JoinedGame) {
-    console.log(response);
+    setTurn(response.turn);
+    setBoard({
+      cell1: response.cell1,
+      cell2: response.cell2,
+      cell3: response.cell3,
+      cell4: response.cell4,
+      cell5: response.cell5,
+      cell6: response.cell6,
+      cell7: response.cell7,
+      cell8: response.cell8,
+      cell9: response.cell9,
+    });
     setIsJoinedGame(true);
     setGameId(response.gameId);
   }
@@ -103,6 +140,9 @@ export function useGameViewModel() {
   function onGameIdChange(id: string) {
     setGameId(id);
   }
+  function onCreateGameClicked() {
+    sendJsonMessage(createGame(clientId));
+  }
 
   return {
     board,
@@ -111,8 +151,11 @@ export function useGameViewModel() {
     clientId,
     isJoinedGame,
     gameId,
+    createdGameId,
+    opponent,
     onJoinClicked,
     onGameIdChange,
+    onCreateGameClicked,
     turn,
   };
 }

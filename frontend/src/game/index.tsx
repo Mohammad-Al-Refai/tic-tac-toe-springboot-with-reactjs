@@ -10,7 +10,10 @@ export function Game() {
     isJoinedGame,
     gameId,
     turn,
+    createdGameId,
+    opponent,
     onJoinClicked,
+    onCreateGameClicked,
     onGameIdChange,
   } = useGameViewModel();
   return (
@@ -21,11 +24,15 @@ export function Game() {
         <p>isJoinedGame: {String(isJoinedGame)}</p>
         <p>gameId: {gameId}</p>
         <p>turn: {turn}</p>
+        <p>createdGameId: {createdGameId}</p>
+        <p>opponent: {JSON.stringify(opponent)}</p>
+
         <input
           placeholder="gameId"
           onChange={(e) => onGameIdChange(e.target.value)}
         />
         <button onClick={onJoinClicked}>join</button>
+        <button onClick={onCreateGameClicked}>create game</button>
       </div>
 
       <div className="game-board">
