@@ -1,4 +1,3 @@
-import "./App.css";
 import { Game } from "./game";
 
 function App() {

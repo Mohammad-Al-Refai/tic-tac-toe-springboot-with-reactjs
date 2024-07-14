@@ -6,6 +6,7 @@ export type ActionResponse =
   | "UPDATE_GAME"
   | "NEW_PLAYER_JOINED"
   | "PLAYER_QUIET"
+  | "AVAILABLE_GAMES"
   | "WIN";
 export type CellState = "NONE" | "X" | "O";
 
@@ -26,6 +27,9 @@ export interface GameWin {
   gameId: string;
   playerId: string;
   winner: CellState;
+}
+export interface AvailableGames {
+  ids: string[];
 }
 export interface JoinedGame {
   action: "JOINED_GAME";

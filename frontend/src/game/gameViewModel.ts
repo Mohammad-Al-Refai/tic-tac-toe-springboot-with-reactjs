@@ -4,6 +4,7 @@ import {
   CellIndex,
   JoinGame,
   createGame,
+  getAvailableGames,
   updateGame,
 } from "../service/Request";
 import {
@@ -15,8 +16,20 @@ import {
   ServerError,
   NewPlayerJoinedGame,
   PlayerQuiet,
+  CellState,
+  AvailableGames,
 } from "../service/Response";
-
+export interface IBoard {
+  cell1: CellState;
+  cell2: CellState;
+  cell3: CellState;
+  cell4: CellState;
+  cell5: CellState;
+  cell6: CellState;
+  cell7: CellState;
+  cell8: CellState;
+  cell9: CellState;
+}
 export function useGameViewModel() {
   const WS = "ws://192.168.8.103:8080/ws";
   const [isConnected, setIsConnected] = useState(false);
@@ -24,6 +37,8 @@ export function useGameViewModel() {
   const [gameId, setGameId] = useState("");
   const [createdGameId, setCreatedGameId] = useState("");
   const [opponent, setOpponent] = useState({ name: "", id: "" });
+  const [iam, setIam] = useState<CellState>("NONE");
+  const [availableGames, setAvailableGames] = useState<string[]>([]);
   const { lastJsonMessage, sendJsonMessage } = useWebSocket(WS, {
     reconnectAttempts: 3,
     onClose(event) {
@@ -31,17 +46,17 @@ export function useGameViewModel() {
     },
   });
   const [clientId, setClientId] = useState("");
-  const [turn, setTurn] = useState("");
-  const [board, setBoard] = useState({
-    cell1: "",
-    cell2: "",
-    cell3: "",
-    cell4: "",
-    cell5: "",
-    cell6: "",
-    cell7: "",
-    cell8: "",
-    cell9: "",
+  const [turn, setTurn] = useState<CellState>("NONE");
+  const [board, setBoard] = useState<IBoard>({
+    cell1: "NONE",
+    cell2: "NONE",
+    cell3: "NONE",
+    cell4: "NONE",
+    cell5: "NONE",
+    cell6: "NONE",
+    cell7: "NONE",
+    cell8: "NONE",
+    cell9: "NONE",
   });
   useEffect(() => {
     if (!lastJsonMessage) {
@@ -50,9 +65,14 @@ export function useGameViewModel() {
     switch (lastJsonMessage.action as ActionResponse) {
       case "CONNECTED":
         onConnected(lastJsonMessage);
+        console.log(clientId);
+
         break;
       case "GAME_CREATED":
         onGameCreated(lastJsonMessage);
+        break;
+      case "AVAILABLE_GAMES":
+        onRetrieveAvailableGames(lastJsonMessage);
         break;
       case "JOINED_GAME":
         onJoinedGame(lastJsonMessage);
@@ -80,6 +100,7 @@ export function useGameViewModel() {
   function onConnected(response: PlayerConnected) {
     setIsConnected(true);
     setClientId(response.clientId);
+    refreshAvailableGames(response.clientId);
   }
   function onGameCreated(response: GameCreated) {
     setCreatedGameId(response.gameId);
@@ -108,10 +129,21 @@ export function useGameViewModel() {
       cell9: response.cell9,
     });
     setIsJoinedGame(true);
+    if (response.playerId1 == clientId) {
+      alert("X");
+      setIam("X");
+    }
+    if (response.playerId2 == clientId) {
+      alert("O");
+      setIam("O");
+    }
     setGameId(response.gameId);
   }
+  function refreshAvailableGames(id: string) {
+    sendJsonMessage(getAvailableGames(id));
+  }
   function onUpdateGame(response: UpdateGame) {
-    setTurn(response.turn);
+    setTurn(response.turn as CellState);
     setBoard({
       cell1: response.cell1,
       cell2: response.cell2,
@@ -131,10 +163,10 @@ export function useGameViewModel() {
     alert(JSON.stringify(response));
   }
   function onCellClicked(cell: CellIndex) {
-    const x = cell[0].toUpperCase() + cell.substring(1, cell.length);
-    sendJsonMessage(updateGame(clientId, gameId, x as CellIndex));
+    const cellIndex = cell[0].toUpperCase() + cell.substring(1, cell.length);
+    sendJsonMessage(updateGame(clientId, gameId, cellIndex as CellIndex));
   }
-  function onJoinClicked() {
+  function onJoinClicked(gameId: string) {
     sendJsonMessage(JoinGame(clientId, gameId));
   }
   function onGameIdChange(id: string) {
@@ -142,6 +174,9 @@ export function useGameViewModel() {
   }
   function onCreateGameClicked() {
     sendJsonMessage(createGame(clientId));
+  }
+  function onRetrieveAvailableGames(response: AvailableGames) {
+    setAvailableGames(response.ids);
   }
 
   return {
@@ -157,5 +192,8 @@ export function useGameViewModel() {
     onGameIdChange,
     onCreateGameClicked,
     turn,
+    iam,
+    availableGames,
+    refreshAvailableGames,
   };
 }

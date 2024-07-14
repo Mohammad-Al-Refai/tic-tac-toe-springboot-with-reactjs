@@ -11,7 +11,6 @@ import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
-import reactor.kotlin.core.publisher.toMono
 import java.util.UUID
 import kotlin.coroutines.CoroutineContext
 
@@ -50,7 +49,23 @@ class WebSocketHandler(
             ActionType.CREATE_GAME -> createGame(session, command)
             ActionType.JOIN_GAME -> joinGame(session, command)
             ActionType.UPDATE_GAME -> updateGame(session, command)
+            ActionType.GET_AVAILABLE_GAMES -> getAvailableGames(session, command)
         }
+    }
+
+    private fun getAvailableGames(session: WebSocketSession, command: WsCommand) {
+        if (command.clientId == null) {
+            sendError(session, "clientId required")
+            return
+        }
+        if (activePlayers[command.clientId] == null) {
+            sendError(session, "clientId unknown")
+            return
+        }
+        launch {
+            val gamesIds = gameRepo.findAvailableGames()
+            sendMessage(session, AvailableGames(ids = gamesIds))
+        }.start()
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {
@@ -211,7 +226,10 @@ class WebSocketHandler(
             if (asPlayer1Games.isNotEmpty()) {
                 asPlayer1Games.forEach { game ->
                     getGamePlayersSessions(gameId = game.id!!).forEach {
-                        sendMessage(it, PlayerQuietGame(gameId = game.id, playerId = player.id, playerName = player.name))
+                        sendMessage(
+                            it,
+                            PlayerQuietGame(gameId = game.id, playerId = player.id, playerName = player.name)
+                        )
                     }
                     game.apply {
                         playerId1 = null
@@ -219,11 +237,13 @@ class WebSocketHandler(
                     gameRepo.save(game)
                 }
             }
-            //Is not sending PlayerQuietGame
             if (asPlayer2Games.isNotEmpty()) {
                 asPlayer2Games.forEach { game ->
                     getGamePlayersSessions(gameId = game.id!!).forEach {
-                        sendMessage(it, PlayerQuietGame(gameId =game.id , playerId = player.id, playerName = player.name))
+                        sendMessage(
+                            it,
+                            PlayerQuietGame(gameId = game.id, playerId = player.id, playerName = player.name)
+                        )
                     }
                     game.apply {
                         playerId2 = null
@@ -393,11 +413,7 @@ class WebSocketHandler(
     }
 
     private fun getCellTurn(currentCellType: CellState): CellState {
-        return if (currentCellType == CellState.X) {
-            CellState.O
-        } else {
-            CellState.X
-        }
+        return if (currentCellType == CellState.X) CellState.O else CellState.X
     }
 
     private suspend fun joinPlayer1(game: Games, clientId: UUID, session: WebSocketSession) {

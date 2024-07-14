@@ -2,6 +2,7 @@ export enum ActionRequest {
   CREATE_GAME,
   JOIN_GAME,
   UPDATE_GAME,
+  GET_AVAILABLE_GAMES,
 }
 export type CellIndex =
   | "Cell1"
@@ -22,6 +23,8 @@ function ActionRequestToString(action: ActionRequest) {
       return "JOIN_GAME";
     case ActionRequest.UPDATE_GAME:
       return "UPDATE_GAME";
+    case ActionRequest.GET_AVAILABLE_GAMES:
+      return "GET_AVAILABLE_GAMES";
     default:
       return "";
   }
@@ -49,5 +52,11 @@ export function updateGame(
     clientId,
     gameId,
     cellIndex,
+  };
+}
+export function getAvailableGames(clientId: string) {
+  return {
+    action: ActionRequestToString(ActionRequest.GET_AVAILABLE_GAMES),
+    clientId,
   };
 }

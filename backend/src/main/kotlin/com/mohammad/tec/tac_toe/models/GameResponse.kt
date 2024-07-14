@@ -1,6 +1,5 @@
 package com.mohammad.tec.tac_toe.models
 
-import org.springframework.web.socket.WebSocketSession
 import java.util.UUID
 
 
@@ -70,4 +69,9 @@ data class WinGame(
     var gameId: UUID,
     var winner: CellState,
     var playerId: UUID
+) : IGameResponse
+
+data class AvailableGames(
+    override var action:ActionResponse= ActionResponse.AVAILABLE_GAMES,
+    var ids: Collection<UUID>
 ) : IGameResponse

@@ -1,3 +1,8 @@
+import { AvailableGamesList } from "../components/AvailableGamesList";
+import { Board } from "../components/Board";
+import { CreateGameEntries } from "../components/CreateGameEntries";
+import { Header } from "../components/Header";
+import { JoinGameEntries } from "../components/JoinGameEntries";
 import { CellIndex } from "../service/Request";
 import { useGameViewModel } from "./gameViewModel";
 
@@ -15,39 +20,26 @@ export function Game() {
     onJoinClicked,
     onCreateGameClicked,
     onGameIdChange,
+    iam,
+    availableGames,
+    refreshAvailableGames,
   } = useGameViewModel();
   return (
-    <div className="game-container">
-      <div className="debug">
-        <p>isConnected: {String(isConnected)}</p>
-        <p>clientId: {clientId}</p>
-        <p>isJoinedGame: {String(isJoinedGame)}</p>
-        <p>gameId: {gameId}</p>
-        <p>turn: {turn}</p>
-        <p>createdGameId: {createdGameId}</p>
-        <p>opponent: {JSON.stringify(opponent)}</p>
-
-        <input
-          placeholder="gameId"
-          onChange={(e) => onGameIdChange(e.target.value)}
-        />
-        <button onClick={onJoinClicked}>join</button>
-        <button onClick={onCreateGameClicked}>create game</button>
+    <div className="flex w-100 col align-items-center p-xl5 ">
+      <Header id={clientId} />
+      <div className="flex align-items-center justify-content-center w-100 h-100 mt-xl5">
+        <Board whoamI={iam} board={board} onCellClicked={onCellClicked} />
       </div>
-
-      <div className="game-board">
-        {Object.keys(board).map((cell) => {
-          return (
-            <div
-              className="game-cell"
-              key={cell}
-              onClick={() => onCellClicked(cell as CellIndex)}
-            >
-              {board[cell]}
-            </div>
-          );
-        })}
-      </div>
+      <JoinGameEntries onJoinClicked={onJoinClicked} />
+      <CreateGameEntries
+        onCreateClicked={onCreateGameClicked}
+        gameId={createdGameId}
+        joinGame={onJoinClicked}
+      />
+      <AvailableGamesList
+        games={availableGames}
+        onRefresh={refreshAvailableGames}
+      />
     </div>
   );
 }

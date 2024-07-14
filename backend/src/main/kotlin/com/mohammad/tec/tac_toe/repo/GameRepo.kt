@@ -13,4 +13,8 @@ interface GameRepo:CoroutineCrudRepository<Games,UUID> {
     suspend fun findGamesByPlayerId2(id:UUID):Collection<Games>
     @Query("SELECT * FROM games where player_id1 = $1 or player_id2 = $1")
     suspend fun findGamesByPlayerId1OrByPlayerId2(id:UUID):Collection<Games>
+    @Query("select * from games\n" +
+            "inner join players on games.admin_id = players.id and players.isactive = 'true'\n" +
+            "where games.player_id1 is null or games.player_id2 is null")
+    suspend fun findAvailableGames():Collection<UUID>
 }

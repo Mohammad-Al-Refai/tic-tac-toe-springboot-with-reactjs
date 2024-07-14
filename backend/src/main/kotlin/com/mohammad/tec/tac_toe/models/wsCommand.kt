@@ -18,6 +18,7 @@ enum class ActionType{
     CREATE_GAME,
     JOIN_GAME,
     UPDATE_GAME,
+    GET_AVAILABLE_GAMES
 }
 
 data class WsCommand (

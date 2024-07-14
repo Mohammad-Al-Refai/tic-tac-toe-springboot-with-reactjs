@@ -9,6 +9,7 @@ enum class ActionResponse {
     NEW_PLAYER_JOINED,
     UPDATE_GAME,
     PLAYER_QUIET,
+    AVAILABLE_GAMES,
     WIN
 }
 
